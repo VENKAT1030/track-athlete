@@ -31,8 +31,8 @@ import AthleteProfileModal from '../components/AthleteProfileModal';
 import CoachProfileModal from '../components/CoachProfileModal';
 import OrganizedEventsSection from '../components/OrganizedEventsSection';
 
-function resolveAcademyAchievementLevel(prof, usr) {
-  const stats = prof?.rankingStats || usr?.rankingStats;
+function resolveAcademyAchievementLevel(prof, usr, currentFormStats = null) {
+  const stats = currentFormStats || prof?.rankingStats || usr?.rankingStats;
   if (stats) {
     const intl = Number(stats.internationalPlayers || 0);
     const natl = Number(stats.nationalPlayers || 0);
@@ -43,7 +43,6 @@ function resolveAcademyAchievementLevel(prof, usr) {
     if (natl >= 2) return 'NATIONAL';
     if (state >= 3) return 'STATE';
     if (dist >= 5) return 'DISTRICT';
-    return 'NOT YET QUALIFIED';
   }
   if (prof?.achievementLevel && prof.achievementLevel !== 'UNRANKED' && prof.achievementLevel !== 'NOT YET QUALIFIED') {
     return prof.achievementLevel;
@@ -733,7 +732,7 @@ export default function AcademyDashboard() {
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-200 border border-amber-500/40">
               <Trophy className="w-3.5 h-3.5 text-amber-300" /> {(() => {
-                const lvl = resolveAcademyAchievementLevel(profile, user);
+                const lvl = resolveAcademyAchievementLevel(profile, user, isEditingStats ? profileForm : null);
                 return lvl !== 'NOT YET QUALIFIED' && lvl !== 'UNRANKED' ? `Achievement Level: ${lvl}` : 'Achievement Level: NOT YET QUALIFIED';
               })()}
             </span>
@@ -1686,7 +1685,7 @@ export default function AcademyDashboard() {
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-extrabold">
                   <Award className="w-4 h-4 text-amber-600" />
                   <span>{(() => {
-                    const lvl = resolveAcademyAchievementLevel(profile, user);
+                    const lvl = resolveAcademyAchievementLevel(profile, user, isEditingStats ? profileForm : null);
                     return lvl !== 'NOT YET QUALIFIED' && lvl !== 'UNRANKED' ? `Achievement Level: ${lvl}` : 'Achievement Level: NOT YET QUALIFIED';
                   })()}</span>
                 </div>
@@ -1822,38 +1821,42 @@ export default function AcademyDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {sports.map(s => {
                     const spName = (s.sportName || s).toUpperCase();
-                    const spData = profile?.perSportLevels?.[spName] || profile?.perSportLevels?.[s.sportName] || {};
-                    let spStats = spData.rankingStats;
-                    if (!spStats || (!spStats.districtPlayers && !spStats.statePlayers && !spStats.nationalPlayers && !spStats.internationalPlayers)) {
-                      const baseStats = profile?.rankingStats || profileForm;
-                      if (baseStats && (baseStats.districtPlayers || baseStats.statePlayers || baseStats.nationalPlayers || baseStats.internationalPlayers)) {
-                        spStats = {
-                          districtPlayers: Number(baseStats.districtPlayers || 0),
-                          statePlayers: Number(baseStats.statePlayers || 0),
-                          nationalPlayers: Number(baseStats.nationalPlayers || 0),
-                          internationalPlayers: Number(baseStats.internationalPlayers || 0)
-                        };
-                      } else {
-                        spStats = { districtPlayers: 0, statePlayers: 0, nationalPlayers: 0, internationalPlayers: 0 };
+                    let spStats = null;
+                    if (isEditingStats && profileForm) {
+                      spStats = {
+                        districtPlayers: Number(profileForm.districtPlayers || 0),
+                        statePlayers: Number(profileForm.statePlayers || 0),
+                        nationalPlayers: Number(profileForm.nationalPlayers || 0),
+                        internationalPlayers: Number(profileForm.internationalPlayers || 0)
+                      };
+                    } else {
+                      const spData = profile?.perSportLevels?.[spName] || profile?.perSportLevels?.[s.sportName] || {};
+                      spStats = spData.rankingStats;
+                      if (!spStats || (!spStats.districtPlayers && !spStats.statePlayers && !spStats.nationalPlayers && !spStats.internationalPlayers)) {
+                        const baseStats = profile?.rankingStats || profileForm;
+                        if (baseStats) {
+                          spStats = {
+                            districtPlayers: Number(baseStats.districtPlayers || 0),
+                            statePlayers: Number(baseStats.statePlayers || 0),
+                            nationalPlayers: Number(baseStats.nationalPlayers || 0),
+                            internationalPlayers: Number(baseStats.internationalPlayers || 0)
+                          };
+                        } else {
+                          spStats = { districtPlayers: 0, statePlayers: 0, nationalPlayers: 0, internationalPlayers: 0 };
+                        }
                       }
                     }
 
-                    let spLevel = spData.achievementLevel;
-                    if (!spLevel || spLevel === 'NOT YET QUALIFIED' || spLevel === 'UNRANKED') {
-                      if (spStats) {
-                        const intl = Number(spStats.internationalPlayers || 0);
-                        const natl = Number(spStats.nationalPlayers || 0);
-                        const state = Number(spStats.statePlayers || 0);
-                        const dist = Number(spStats.districtPlayers || 0);
-                        if (intl >= 1) spLevel = 'INTERNATIONAL';
-                        else if (natl >= 2) spLevel = 'NATIONAL';
-                        else if (state >= 3 || (state >= 2 && dist >= 5)) spLevel = 'STATE';
-                        else if (dist >= 5) spLevel = 'DISTRICT';
-                        else spLevel = 'NOT YET QUALIFIED';
-                      } else {
-                        spLevel = resolveAcademyAchievementLevel(profile, user);
-                      }
-                    }
+                    const intl = Number(spStats.internationalPlayers || 0);
+                    const natl = Number(spStats.nationalPlayers || 0);
+                    const state = Number(spStats.statePlayers || 0);
+                    const dist = Number(spStats.districtPlayers || 0);
+                    let spLevel = 'NOT YET QUALIFIED';
+                    if (intl >= 1) spLevel = 'INTERNATIONAL';
+                    else if (natl >= 2) spLevel = 'NATIONAL';
+                    else if (state >= 3 || (state >= 2 && dist >= 5)) spLevel = 'STATE';
+                    else if (dist >= 5) spLevel = 'DISTRICT';
+
                     const isQualified = spLevel !== 'NOT YET QUALIFIED' && spLevel !== 'UNRANKED';
 
                     return (

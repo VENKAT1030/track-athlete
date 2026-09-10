@@ -269,12 +269,14 @@ router.get('/my/profile', verifyToken, requireRoles('academy'), async (req, res)
     const { getAcademyPerSportAchievementLevels } = require('../utils/recommendationEngine');
     const { overallLevel, overallLevelLabel, perSport } = await getAcademyPerSportAchievementLevels(academy);
 
-    if (academy.achievementLevel !== overallLevel || academy.achievementLevelLabel !== overallLevelLabel) {
+    if (academy.achievementLevel !== overallLevel || academy.achievementLevelLabel !== overallLevelLabel || !academy.perSportLevels) {
       academy.achievementLevel = overallLevel;
       academy.achievementLevelLabel = overallLevelLabel;
-      await Academy.updateOne({ _id: academy._id }, { $set: { achievementLevel: overallLevel, achievementLevelLabel: overallLevelLabel } });
+      academy.perSportLevels = perSport;
+      academy.markModified('perSportLevels');
+      await Academy.updateOne({ _id: academy._id }, { $set: { achievementLevel: overallLevel, achievementLevelLabel: overallLevelLabel, perSportLevels: perSport } });
       if (academy.userId) {
-        await User.updateOne({ _id: academy.userId }, { $set: { achievementLevel: overallLevel, achievementLevelLabel: overallLevelLabel } });
+        await User.updateOne({ _id: academy.userId }, { $set: { achievementLevel: overallLevel, achievementLevelLabel: overallLevelLabel, perSportLevels: perSport } });
       }
     }
 
@@ -358,6 +360,8 @@ router.put('/my/profile', verifyToken, requireRoles('academy'), async (req, res)
     const { overallLevel, overallLevelLabel, perSport } = await getAcademyPerSportAchievementLevels(academy);
     academy.achievementLevel = overallLevel;
     academy.achievementLevelLabel = overallLevelLabel;
+    academy.perSportLevels = perSport;
+    academy.markModified('perSportLevels');
     academy.verified = true;
     academy.updatedAt = new Date();
     await academy.save();
