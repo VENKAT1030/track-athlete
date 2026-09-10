@@ -33,7 +33,7 @@ import OrganizedEventsSection from '../components/OrganizedEventsSection';
 
 function resolveAcademyAchievementLevel(prof, usr, currentFormStats = null) {
   const stats = currentFormStats || prof?.rankingStats || usr?.rankingStats;
-  if (stats) {
+  if (stats && typeof stats === 'object') {
     const intl = Number(stats.internationalPlayers || 0);
     const natl = Number(stats.nationalPlayers || 0);
     const state = Number(stats.statePlayers || 0);
@@ -43,11 +43,12 @@ function resolveAcademyAchievementLevel(prof, usr, currentFormStats = null) {
     if (natl >= 2) return 'NATIONAL';
     if (state >= 3) return 'STATE';
     if (dist >= 5) return 'DISTRICT';
+    return 'NOT YET QUALIFIED';
   }
-  if (prof?.achievementLevel && prof.achievementLevel !== 'UNRANKED' && prof.achievementLevel !== 'NOT YET QUALIFIED') {
+  if (prof?.achievementLevel && prof.achievementLevel !== 'UNRANKED') {
     return prof.achievementLevel;
   }
-  if (usr?.achievementLevel && usr.achievementLevel !== 'UNRANKED' && usr.achievementLevel !== 'NOT YET QUALIFIED') {
+  if (usr?.achievementLevel && usr.achievementLevel !== 'UNRANKED') {
     return usr.achievementLevel;
   }
   return 'NOT YET QUALIFIED';
@@ -193,10 +194,10 @@ export default function AcademyDashboard() {
           country: res.data.address?.country || 'India',
           longitude: res.data.location?.coordinates?.[0] ?? 80.6480,
           latitude: res.data.location?.coordinates?.[1] ?? 16.5062,
-          districtPlayers: res.data.rankingStats?.districtPlayers || 0,
-          statePlayers: res.data.rankingStats?.statePlayers || 0,
-          nationalPlayers: res.data.rankingStats?.nationalPlayers || 0,
-          internationalPlayers: res.data.rankingStats?.internationalPlayers || 0
+          districtPlayers: res.data.rankingStats?.districtPlayers ?? 0,
+          statePlayers: res.data.rankingStats?.statePlayers ?? 0,
+          nationalPlayers: res.data.rankingStats?.nationalPlayers ?? 0,
+          internationalPlayers: res.data.rankingStats?.internationalPlayers ?? 0
         });
       }
     } catch (err) {
