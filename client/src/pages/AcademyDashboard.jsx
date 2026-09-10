@@ -381,7 +381,6 @@ export default function AcademyDashboard() {
       }
       showNotification('Academy representation statistics saved & achievement level recalculated!');
       setIsEditingStats(false);
-      fetchProfile();
     } catch (err) {
       console.error('Error saving representation statistics:', err);
       showNotification(err.response?.data?.error || 'Failed to save representation statistics.', 'error');

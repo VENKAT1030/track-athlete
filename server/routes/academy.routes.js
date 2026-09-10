@@ -100,15 +100,13 @@ async function getAcademyForUser(userId) {
           uUpdates.achievementLevel = academy.achievementLevel;
           uUpdates.achievementLevelLabel = academy.achievementLevelLabel;
         }
-        const acadHasStats = academy.rankingStats && typeof academy.rankingStats === 'object' && academy.rankingStats.districtPlayers !== undefined;
-        const userHasStats = u.rankingStats && typeof u.rankingStats === 'object' && u.rankingStats.districtPlayers !== undefined;
-        
-        if (acadHasStats) {
-          uUpdates.rankingStats = academy.rankingStats;
-        } else if (userHasStats) {
-          academy.rankingStats = u.rankingStats;
-          await Academy.updateOne({ _id: academy._id }, { $set: { rankingStats: u.rankingStats } });
-        }
+        const acadStats = {
+          districtPlayers: Math.max(0, parseInt(academy.rankingStats?.districtPlayers, 10) || 0),
+          statePlayers: Math.max(0, parseInt(academy.rankingStats?.statePlayers, 10) || 0),
+          nationalPlayers: Math.max(0, parseInt(academy.rankingStats?.nationalPlayers, 10) || 0),
+          internationalPlayers: Math.max(0, parseInt(academy.rankingStats?.internationalPlayers, 10) || 0)
+        };
+        uUpdates.rankingStats = acadStats;
         if (Object.keys(uUpdates).length > 0) {
           await User.updateOne({ _id: u._id }, { $set: uUpdates });
         }

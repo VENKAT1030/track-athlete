@@ -148,8 +148,8 @@ export default function FederationDashboard() {
   // Create Event Submit
   const handleCreateEvent = async (e) => {
     e?.preventDefault();
-    if (!eventForm.eventName || !eventForm.tournamentDate || !eventForm.submissionDeadline) {
-      toast({ title: 'Required Fields', description: 'Please enter the event name, tournament date, and submission deadline.', variant: 'destructive' });
+    if (!eventForm.eventName || !eventForm.tournamentDate || !eventForm.submissionDeadline || !eventForm.competitionLevel) {
+      toast({ title: 'Required Fields', description: 'Please enter event name, tournament level, tournament date, and submission deadline.', variant: 'destructive' });
       return;
     }
 
