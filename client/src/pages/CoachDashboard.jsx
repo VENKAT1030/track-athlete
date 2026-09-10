@@ -195,7 +195,7 @@ export default function CoachDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList>
+        <TabsList className="w-full flex flex-wrap h-auto gap-1.5 p-1.5 bg-[#e2eee4] rounded-xl border border-[#2f6d5a]/30">
           <TabsTrigger value="inbox">
             <Inbox className="w-4 h-4 mr-1.5" />
             Request Inbox
