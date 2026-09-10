@@ -15,7 +15,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from '../components/ui';
-import { Shield, Award, Calendar, MapPin, Search, Plus, FileText, CheckCircle2, Lock, Eye, LogOut, Upload, UserCheck, AlertTriangle, XCircle, RefreshCw, Building, Globe } from 'lucide-react';
+import { Shield, Award, Calendar, MapPin, Search, Plus, FileText, CheckCircle2, Lock, Eye, LogOut, Upload, UserCheck, AlertTriangle, XCircle, RefreshCw, Building, Globe, Trophy } from 'lucide-react';
 import api from '../services/api';
 
 export default function FederationDashboard() {

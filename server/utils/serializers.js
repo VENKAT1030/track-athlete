@@ -219,12 +219,16 @@ function serializeAcademyProfile(academyDoc, requesterRole = 'public') {
     ? a.sports.map(s => (typeof s === 'string' ? s.toUpperCase() : (s.sportName || '').toUpperCase())).filter(Boolean)
     : [];
 
-  const rankingStats = a.rankingStats || { districtPlayers: 0, statePlayers: 0, nationalPlayers: 0, internationalPlayers: 0 };
-  let achievementLevel = a.achievementLevel;
-  if (!achievementLevel || achievementLevel === 'NOT YET QUALIFIED' || achievementLevel === 'UNRANKED') {
-    const { calculateAchievementLevelFromStats } = require('./academyRanking');
-    achievementLevel = calculateAchievementLevelFromStats(rankingStats);
-  }
+  const rawStats = a.rankingStats || {};
+  const rankingStats = {
+    districtPlayers: Math.max(0, parseInt(rawStats.districtPlayers, 10) || 0),
+    statePlayers: Math.max(0, parseInt(rawStats.statePlayers, 10) || 0),
+    nationalPlayers: Math.max(0, parseInt(rawStats.nationalPlayers, 10) || 0),
+    internationalPlayers: Math.max(0, parseInt(rawStats.internationalPlayers, 10) || 0)
+  };
+  const { calculateAchievementLevelFromStats } = require('./academyRanking');
+  const computedLevel = calculateAchievementLevelFromStats(rankingStats);
+  let achievementLevel = computedLevel !== 'NOT YET QUALIFIED' ? computedLevel : (a.achievementLevel || 'NOT YET QUALIFIED');
   const isQualified = achievementLevel !== 'NOT YET QUALIFIED' && achievementLevel !== 'UNRANKED';
 
   const perSportLevels = { ...(a.perSportLevels || {}) };
