@@ -156,7 +156,7 @@ export default function CoachDashboard() {
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#e2eee4] text-[#194e42] border border-[#2f6d5a]">
-              <UserCheck className="w-3.5 h-3.5 text-[#cc694e]" /> Certified Coach
+              <UserCheck className="w-3.5 h-3.5 text-[#cc694e]" /> Certified Coach / PED
             </span>
             <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono text-[#c5d3ce] border border-white/20">
               ID: {user?.coachId || user?.trackAthleteId || 'COA-N/A'}
@@ -216,7 +216,7 @@ export default function CoachDashboard() {
             <Users className="w-4 h-4 mr-1.5 text-[#cc694e]" /> Coach Connections
           </TabsTrigger>
           <TabsTrigger value="profile">
-            <User className="w-4 h-4 mr-1.5" /> Coach Profile
+            <User className="w-4 h-4 mr-1.5" /> Coach / PED Profile
           </TabsTrigger>
           <TabsTrigger value="notes">
             <BookOpen className="w-4 h-4 mr-1.5" /> Session Notes

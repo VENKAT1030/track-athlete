@@ -27,7 +27,7 @@ const roleOptions = [
   { id: 'academy-signin', label: 'Academy (Sign In)', icon: Building2 },
   { id: 'athlete', label: 'Athlete', icon: UserRound },
   { id: 'parent', label: 'Parent', icon: UsersRound },
-  { id: 'coach', label: 'Coach', icon: UsersRound },
+  { id: 'coach', label: 'Coach / PED', icon: UsersRound },
   { id: 'sponsor', label: 'Sponsor', icon: HeartHandshake },
   { id: 'organizer', label: 'Organizer', icon: CalendarPlus }
 ];

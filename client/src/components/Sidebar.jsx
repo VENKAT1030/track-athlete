@@ -12,7 +12,7 @@ const links = [
   { to: '/athlete', role: 'athlete', label: 'Athlete profile', icon: UserRound, caption: 'Training & growth' },
   { to: '/athlete?tab=eligible', role: 'athlete', label: 'Eligible for you', icon: Trophy, caption: 'Upcoming tournaments' },
   { to: '/athlete/recommendations', role: 'athlete', label: 'Recommendations', icon: Trophy, caption: 'Verified academy matches' },
-  { to: '/coach', role: 'coach', label: 'Coach desk', icon: UsersRound, caption: 'Athlete relationships' },
+  { to: '/coach', role: 'coach', label: 'Coach / PED desk', icon: UsersRound, caption: 'Athlete relationships' },
   { to: '/sponsor', role: 'sponsor', label: 'Impact studio', icon: HeartHandshake, caption: 'Support & reports' },
   { to: '/academy', role: 'academy', label: 'Academy hub', icon: Building2, caption: 'Listing & verification' },
 ];

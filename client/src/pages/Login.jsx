@@ -16,7 +16,7 @@ const routeForRole = {
 const roles = [
   { id: 'parent', label: 'Parent', copy: 'Plan a clearer pathway', icon: UsersRound },
   { id: 'athlete', label: 'Athlete', copy: 'Build your sporting profile', icon: UserRound },
-  { id: 'coach', label: 'Coach', copy: 'Guide your athletes', icon: UsersRound },
+  { id: 'coach', label: 'Coach / PED', copy: 'Guide your athletes', icon: UsersRound },
   { id: 'sponsor', label: 'Sponsor', copy: 'Support with clarity', icon: HeartHandshake },
   { id: 'academy', label: 'Academy', copy: 'Manage your listing', icon: Building2 }
   ,{ id: 'organizer', label: 'Organize Event', copy: 'Create and manage sports events', icon: CalendarPlus }
