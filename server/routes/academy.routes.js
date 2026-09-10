@@ -319,12 +319,16 @@ router.put('/my/profile', verifyToken, requireRoles('academy'), async (req, res)
 
     if (rankingStats && typeof rankingStats === 'object') {
       academy.rankingStats = {
-        districtPlayers: Math.max(0, parseInt(rankingStats.districtPlayers) || 0),
-        statePlayers: Math.max(0, parseInt(rankingStats.statePlayers) || 0),
-        nationalPlayers: Math.max(0, parseInt(rankingStats.nationalPlayers) || 0),
-        internationalPlayers: Math.max(0, parseInt(rankingStats.internationalPlayers) || 0)
+        districtPlayers: Math.max(0, parseInt(rankingStats.districtPlayers, 10) || 0),
+        statePlayers: Math.max(0, parseInt(rankingStats.statePlayers, 10) || 0),
+        nationalPlayers: Math.max(0, parseInt(rankingStats.nationalPlayers, 10) || 0),
+        internationalPlayers: Math.max(0, parseInt(rankingStats.internationalPlayers, 10) || 0)
       };
       academy.markModified('rankingStats');
+      if (!perSportLevels) {
+        academy.perSportLevels = {};
+        academy.markModified('perSportLevels');
+      }
     }
 
     if (perSportLevels && typeof perSportLevels === 'object') {

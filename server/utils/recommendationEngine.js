@@ -176,20 +176,31 @@ async function getAcademyPerSportAchievementLevels(academyDoc, preloadedMembersh
     }
 
     // Derive effective player stats using official representation statistics
+    const perSportStats = academyDoc.perSportLevels?.[sport]?.rankingStats;
+    const hasPerSportStats = perSportStats && typeof perSportStats === 'object' && perSportStats.districtPlayers !== undefined;
     const hasManualStats = academyDoc.rankingStats && typeof academyDoc.rankingStats === 'object';
+
     const effectiveStats = {
-      districtPlayers: hasManualStats && academyDoc.rankingStats.districtPlayers !== undefined
-        ? Number(academyDoc.rankingStats.districtPlayers)
-        : districtCount,
-      statePlayers: hasManualStats && academyDoc.rankingStats.statePlayers !== undefined
-        ? Number(academyDoc.rankingStats.statePlayers)
-        : stateCount,
-      nationalPlayers: hasManualStats && academyDoc.rankingStats.nationalPlayers !== undefined
-        ? Number(academyDoc.rankingStats.nationalPlayers)
-        : nationalCount,
-      internationalPlayers: hasManualStats && academyDoc.rankingStats.internationalPlayers !== undefined
-        ? Number(academyDoc.rankingStats.internationalPlayers)
-        : internationalCount
+      districtPlayers: hasPerSportStats
+        ? Math.max(0, parseInt(perSportStats.districtPlayers, 10) || 0)
+        : (hasManualStats && academyDoc.rankingStats.districtPlayers !== undefined
+          ? Math.max(0, parseInt(academyDoc.rankingStats.districtPlayers, 10) || 0)
+          : districtCount),
+      statePlayers: hasPerSportStats
+        ? Math.max(0, parseInt(perSportStats.statePlayers, 10) || 0)
+        : (hasManualStats && academyDoc.rankingStats.statePlayers !== undefined
+          ? Math.max(0, parseInt(academyDoc.rankingStats.statePlayers, 10) || 0)
+          : stateCount),
+      nationalPlayers: hasPerSportStats
+        ? Math.max(0, parseInt(perSportStats.nationalPlayers, 10) || 0)
+        : (hasManualStats && academyDoc.rankingStats.nationalPlayers !== undefined
+          ? Math.max(0, parseInt(academyDoc.rankingStats.nationalPlayers, 10) || 0)
+          : nationalCount),
+      internationalPlayers: hasPerSportStats
+        ? Math.max(0, parseInt(perSportStats.internationalPlayers, 10) || 0)
+        : (hasManualStats && academyDoc.rankingStats.internationalPlayers !== undefined
+          ? Math.max(0, parseInt(academyDoc.rankingStats.internationalPlayers, 10) || 0)
+          : internationalCount)
     };
 
     const level = calculateAchievementLevelFromStats(effectiveStats);
