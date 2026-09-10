@@ -13,7 +13,6 @@ import FederationListsSection from '../components/FederationListsSection';
 import CoachAcademyOpeningsSection from '../components/CoachAcademyOpeningsSection';
 import OrganizedEventsSection from '../components/OrganizedEventsSection';
 import CoachConnectionsSection from '../components/CoachConnectionsSection';
-import CoachAiAssistantSection from '../components/CoachAiAssistantSection';
 import {
   UserCheck, Check, X, Plus, Award, Users, BookOpen,
   Clock, ExternalLink, Trophy, MapPin, MessageCircle, FileText,
@@ -215,9 +214,6 @@ export default function CoachDashboard() {
           </TabsTrigger>
           <TabsTrigger value="connections">
             <Users className="w-4 h-4 mr-1.5 text-[#cc694e]" /> Coach Connections
-          </TabsTrigger>
-          <TabsTrigger value="ai-assistant">
-            <Sparkles className="w-4 h-4 mr-1.5 text-[#e07050]" /> Coach AI Assistant
           </TabsTrigger>
           <TabsTrigger value="profile">
             <User className="w-4 h-4 mr-1.5" /> Coach Profile
@@ -744,11 +740,6 @@ export default function CoachDashboard() {
         {/* ── COACH CONNECTIONS ─────────────────────────────────────── */}
         <TabsContent value="connections" className="space-y-4">
           <CoachConnectionsSection currentUserId={user?._id} />
-        </TabsContent>
-
-        {/* ── COACH AI ASSISTANT ────────────────────────────────────── */}
-        <TabsContent value="ai-assistant" className="space-y-4">
-          <CoachAiAssistantSection />
         </TabsContent>
       </Tabs>
 
