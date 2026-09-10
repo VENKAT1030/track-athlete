@@ -106,21 +106,35 @@ export default function FederationDashboard() {
     fetchFederationData();
   }, [fetchFederationData]);
 
+  function formatDateSafe(dStr) {
+    if (!dStr) return 'Not set';
+    const d = new Date(dStr);
+    if (isNaN(d.getTime())) return 'Not set';
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
   // Derived Dynamic Filters from MongoDB Records
-  const uniqueSports = Array.from(new Set(allFederations.map(f => f.sport).filter(Boolean))).sort();
-  const uniqueStates = Array.from(new Set(allAssociations.map(a => a.state).filter(Boolean))).sort();
+  const uniqueSports = Array.from(new Set((Array.isArray(allFederations) ? allFederations : []).map(f => f?.sport).filter(Boolean))).sort();
+  const uniqueStates = Array.from(new Set((Array.isArray(allAssociations) ? allAssociations : []).map(a => a?.state).filter(Boolean))).sort();
 
   // Filtered MongoDB Organizations
-  const filteredFederations = allFederations.filter(f => {
-    const matchSport = !selectedSportFilter || f.sport.toLowerCase() === selectedSportFilter.toLowerCase();
-    const matchQuery = !searchOrgQuery || f.name.toLowerCase().includes(searchOrgQuery.toLowerCase()) || f.sport.toLowerCase().includes(searchOrgQuery.toLowerCase());
+  const filteredFederations = (Array.isArray(allFederations) ? allFederations : []).filter(f => {
+    if (!f) return false;
+    const fSport = String(f.sport || '');
+    const fName = String(f.name || '');
+    const matchSport = !selectedSportFilter || fSport.toLowerCase() === selectedSportFilter.toLowerCase();
+    const matchQuery = !searchOrgQuery || fName.toLowerCase().includes(searchOrgQuery.toLowerCase()) || fSport.toLowerCase().includes(searchOrgQuery.toLowerCase());
     return matchSport && matchQuery;
   });
 
-  const filteredAssociations = allAssociations.filter(a => {
-    const matchSport = !selectedSportFilter || a.sport.toLowerCase() === selectedSportFilter.toLowerCase();
-    const matchState = !selectedStateFilter || a.state.toLowerCase() === selectedStateFilter.toLowerCase();
-    const matchQuery = !searchOrgQuery || a.associationName.toLowerCase().includes(searchOrgQuery.toLowerCase()) || a.sport.toLowerCase().includes(searchOrgQuery.toLowerCase());
+  const filteredAssociations = (Array.isArray(allAssociations) ? allAssociations : []).filter(a => {
+    if (!a) return false;
+    const aSport = String(a.sport || '');
+    const aState = String(a.state || '');
+    const aName = String(a.associationName || a.name || '');
+    const matchSport = !selectedSportFilter || aSport.toLowerCase() === selectedSportFilter.toLowerCase();
+    const matchState = !selectedStateFilter || aState.toLowerCase() === selectedStateFilter.toLowerCase();
+    const matchQuery = !searchOrgQuery || aName.toLowerCase().includes(searchOrgQuery.toLowerCase()) || aSport.toLowerCase().includes(searchOrgQuery.toLowerCase());
     return matchSport && matchState && matchQuery;
   });
 
@@ -376,10 +390,10 @@ export default function FederationDashboard() {
                           <div>Category: <strong>{evt.category}</strong> · Sport: <strong>{evt.sport}</strong></div>
                           {evt.location && <div>Location: {evt.location}</div>}
                           <div className="text-[#194e42] font-bold mt-1">
-                            Tournament Date: {evt.tournamentDate ? new Date(evt.tournamentDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set'}
+                            Tournament Date: {formatDateSafe(evt.tournamentDate)}
                           </div>
                           <div className="text-[#c85c40] font-bold mt-1">
-                            Deadline: {new Date(evt.submissionDeadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            Deadline: {formatDateSafe(evt.submissionDeadline)}
                           </div>
                         </div>
                       </div>

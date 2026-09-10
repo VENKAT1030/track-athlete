@@ -93,6 +93,8 @@ const UserSchema = new mongoose.Schema({
     internationalPlayers: { type: Number, default: 0 }
   },
   perSportLevels: { type: mongoose.Schema.Types.Mixed, default: {} },
+  achievementLevel: { type: String, default: 'UNRANKED' },
+  achievementLevelLabel: { type: String, default: 'Achievement Level: UNRANKED' },
 
   // Location (used for distance calculations across roles)
   city: String,

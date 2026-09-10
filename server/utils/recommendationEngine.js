@@ -175,13 +175,21 @@ async function getAcademyPerSportAchievementLevels(academyDoc, preloadedMembersh
       }
     }
 
-    // Derive effective player stats by combining active linked verified members
-    // and the academy's official representation statistics
+    // Derive effective player stats using official representation statistics
+    const hasManualStats = academyDoc.rankingStats && typeof academyDoc.rankingStats === 'object';
     const effectiveStats = {
-      districtPlayers: Math.max(districtCount, Number(academyDoc.rankingStats?.districtPlayers || 0)),
-      statePlayers: Math.max(stateCount, Number(academyDoc.rankingStats?.statePlayers || 0)),
-      nationalPlayers: Math.max(nationalCount, Number(academyDoc.rankingStats?.nationalPlayers || 0)),
-      internationalPlayers: Math.max(internationalCount, Number(academyDoc.rankingStats?.internationalPlayers || 0))
+      districtPlayers: hasManualStats && academyDoc.rankingStats.districtPlayers !== undefined
+        ? Number(academyDoc.rankingStats.districtPlayers)
+        : districtCount,
+      statePlayers: hasManualStats && academyDoc.rankingStats.statePlayers !== undefined
+        ? Number(academyDoc.rankingStats.statePlayers)
+        : stateCount,
+      nationalPlayers: hasManualStats && academyDoc.rankingStats.nationalPlayers !== undefined
+        ? Number(academyDoc.rankingStats.nationalPlayers)
+        : nationalCount,
+      internationalPlayers: hasManualStats && academyDoc.rankingStats.internationalPlayers !== undefined
+        ? Number(academyDoc.rankingStats.internationalPlayers)
+        : internationalCount
     };
 
     const level = calculateAchievementLevelFromStats(effectiveStats);
@@ -196,24 +204,20 @@ async function getAcademyPerSportAchievementLevels(academyDoc, preloadedMembersh
     };
   }
 
-  // Calculate overall level as the highest qualifying level across all sports
+  // Calculate overall level as the highest qualifying level across all sports & direct rankingStats
   let maxRank = 0;
   let overallLevel = 'NOT YET QUALIFIED';
+
+  if (academyDoc.rankingStats) {
+    overallLevel = calculateAchievementLevelFromStats(academyDoc.rankingStats);
+    maxRank = getCompetitionRank(overallLevel);
+  }
+
   for (const info of Object.values(perSport)) {
     const r = getCompetitionRank(info.achievementLevel);
     if (r > maxRank) {
       maxRank = r;
       overallLevel = info.achievementLevel;
-    }
-  }
-
-  // Also evaluate overall level directly from official rankingStats if set
-  if (academyDoc.rankingStats) {
-    const directLevel = calculateAchievementLevelFromStats(academyDoc.rankingStats);
-    const r = getCompetitionRank(directLevel);
-    if (r > maxRank) {
-      maxRank = r;
-      overallLevel = directLevel;
     }
   }
 

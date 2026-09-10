@@ -19,6 +19,8 @@ import OrganizerDashboard from './pages/OrganizerDashboard';
 
 import HomePage from './pages/HomePage';
 
+import ErrorBoundary from './components/ErrorBoundary';
+
 const routeForRole = {
   parent: '/parent',
   athlete: '/athlete',
@@ -36,7 +38,7 @@ function ProtectedApp() {
   if (!user) return <Navigate to="/login" replace />;
 
   if (user.role === 'federation') {
-    return <FederationDashboard />;
+    return <ErrorBoundary title="Federation Portal Error"><FederationDashboard /></ErrorBoundary>;
   }
   if (user.role === 'organizer') return <OrganizerDashboard />;
 
@@ -68,7 +70,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Login initialMode="signup" />} />
             <Route path="/federation/login" element={<FederationLogin />} />
-            <Route path="/federation/dashboard" element={<FederationDashboard />} />
+            <Route path="/federation/dashboard" element={<ErrorBoundary title="Federation Portal Error"><FederationDashboard /></ErrorBoundary>} />
             <Route path="/organizer/login" element={<OrganizerLogin />} />
             <Route path="/organizer" element={<OrganizerDashboard />} />
             <Route path="/verify/:recordId" element={<VerificationPortal />} />
