@@ -87,6 +87,13 @@ export default function AcademyDashboard() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [isEditingStats, setIsEditingStats] = useState(false);
   const [savingStats, setSavingStats] = useState(false);
+  const [statisticsSport, setStatisticsSport] = useState('');
+  const [statisticsForm, setStatisticsForm] = useState({
+    districtPlayers: 0,
+    statePlayers: 0,
+    nationalPlayers: 0,
+    internationalPlayers: 0
+  });
 
   // Sports & Memberships
   const [sports, setSports] = useState([]);
@@ -282,12 +289,6 @@ export default function AcademyDashboard() {
           type: 'Point',
           coordinates: [Number(profileForm.longitude) || 80.6480, Number(profileForm.latitude) || 16.5062]
         },
-        rankingStats: {
-          districtPlayers: Math.max(0, parseInt(profileForm.districtPlayers, 10) || 0),
-          statePlayers: Math.max(0, parseInt(profileForm.statePlayers, 10) || 0),
-          nationalPlayers: Math.max(0, parseInt(profileForm.nationalPlayers, 10) || 0),
-          internationalPlayers: Math.max(0, parseInt(profileForm.internationalPlayers, 10) || 0)
-        }
       };
 
       const res = await api.put('/academy/my/profile', payload);
@@ -336,45 +337,56 @@ export default function AcademyDashboard() {
   };
 
   // Representation Statistics Save & Cancel
+  const getSportStatistics = (sport, source = profile) => {
+    const normalizedSport = String(sport || '').trim().toUpperCase();
+    const stats = source?.perSportLevels?.[normalizedSport]?.rankingStats || {};
+    return {
+      districtPlayers: stats.districtPlayers ?? 0,
+      statePlayers: stats.statePlayers ?? 0,
+      nationalPlayers: stats.nationalPlayers ?? 0,
+      internationalPlayers: stats.internationalPlayers ?? 0
+    };
+  };
+
+  const startEditingStats = () => {
+    const sport = statisticsSport || selectedSport || (sports[0]?.sportName || '');
+    if (!sport) {
+      showNotification('Add a sport before entering representation statistics.', 'error');
+      return;
+    }
+    setStatisticsSport(String(sport).toUpperCase());
+    setStatisticsForm(getSportStatistics(sport));
+    setIsEditingStats(true);
+  };
+
   const handleCancelStats = () => {
     setIsEditingStats(false);
-    if (profile?.rankingStats) {
-      setProfileForm(prev => ({
-        ...prev,
-        districtPlayers: profile.rankingStats.districtPlayers || 0,
-        statePlayers: profile.rankingStats.statePlayers || 0,
-        nationalPlayers: profile.rankingStats.nationalPlayers || 0,
-        internationalPlayers: profile.rankingStats.internationalPlayers || 0
-      }));
-    }
+    setStatisticsForm(getSportStatistics(statisticsSport));
   };
 
   const handleSaveStats = async (e) => {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
     setSavingStats(true);
     try {
-      const payload = {
-        rankingStats: {
-          districtPlayers: Math.max(0, parseInt(profileForm.districtPlayers, 10) || 0),
-          statePlayers: Math.max(0, parseInt(profileForm.statePlayers, 10) || 0),
-          nationalPlayers: Math.max(0, parseInt(profileForm.nationalPlayers, 10) || 0),
-          internationalPlayers: Math.max(0, parseInt(profileForm.internationalPlayers, 10) || 0)
-        }
+      const toCount = (value) => {
+        const count = Number(value);
+        return Number.isFinite(count) && count >= 0 ? Math.floor(count) : 0;
       };
+      const payload = { rankingStats: {
+        districtPlayers: toCount(statisticsForm.districtPlayers),
+        statePlayers: toCount(statisticsForm.statePlayers),
+        nationalPlayers: toCount(statisticsForm.nationalPlayers),
+        internationalPlayers: toCount(statisticsForm.internationalPlayers)
+      } };
 
-      const res = await api.put('/academy/my/profile', payload);
+      const res = await api.put(`/academy/my/sports/${encodeURIComponent(statisticsSport)}/statistics`, payload);
       if (res.data) {
         setProfile(res.data);
-        setProfileForm(prev => ({
-          ...prev,
-          districtPlayers: res.data.rankingStats?.districtPlayers ?? prev.districtPlayers,
-          statePlayers: res.data.rankingStats?.statePlayers ?? prev.statePlayers,
-          nationalPlayers: res.data.rankingStats?.nationalPlayers ?? prev.nationalPlayers,
-          internationalPlayers: res.data.rankingStats?.internationalPlayers ?? prev.internationalPlayers
-        }));
+        setStatisticsForm(res.data.updatedSport?.rankingStats || payload.rankingStats);
         if (typeof updateUser === 'function') {
           updateUser({
             rankingStats: res.data.rankingStats,
+            perSportLevels: res.data.perSportLevels,
             achievementLevel: res.data.achievementLevel,
             achievementLevelLabel: res.data.achievementLevelLabel
           });
@@ -732,7 +744,11 @@ export default function AcademyDashboard() {
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-200 border border-amber-500/40">
               <Trophy className="w-3.5 h-3.5 text-amber-300" /> {(() => {
-                const lvl = resolveAcademyAchievementLevel(profile, user, isEditingStats ? profileForm : null);
+                const lvl = resolveAcademyAchievementLevel(
+                  { rankingStats: getSportStatistics(statisticsSport || selectedSport) },
+                  user,
+                  isEditingStats ? statisticsForm : null
+                );
                 return lvl !== 'NOT YET QUALIFIED' && lvl !== 'UNRANKED' ? `Achievement Level: ${lvl}` : 'Achievement Level: NOT YET QUALIFIED';
               })()}
             </span>
@@ -1685,14 +1701,18 @@ export default function AcademyDashboard() {
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-extrabold">
                   <Award className="w-4 h-4 text-amber-600" />
                   <span>{(() => {
-                    const lvl = resolveAcademyAchievementLevel(profile, user, isEditingStats ? profileForm : null);
+                    const lvl = resolveAcademyAchievementLevel(
+                      { rankingStats: getSportStatistics(statisticsSport || selectedSport) },
+                      user,
+                      isEditingStats ? statisticsForm : null
+                    );
                     return lvl !== 'NOT YET QUALIFIED' && lvl !== 'UNRANKED' ? `Achievement Level: ${lvl}` : 'Achievement Level: NOT YET QUALIFIED';
                   })()}</span>
                 </div>
                 {!isEditingStats ? (
                   <button
                     type="button"
-                    onClick={() => setIsEditingStats(true)}
+                    onClick={startEditingStats}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2f6d5a] hover:bg-[#255747] text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
                   >
                     <Edit className="w-3.5 h-3.5" />
@@ -1723,6 +1743,26 @@ export default function AcademyDashboard() {
               </div>
             </div>
 
+            {isEditingStats && (
+              <div className="max-w-sm">
+                <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">Sport</label>
+                <select
+                  value={statisticsSport}
+                  onChange={(e) => {
+                    const sport = e.target.value;
+                    setStatisticsSport(sport);
+                    setStatisticsForm(getSportStatistics(sport));
+                  }}
+                  className="w-full px-3 py-2 text-xs font-bold border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-[#2f6d5a]"
+                >
+                  {sports.map(s => {
+                    const sport = String(s.sportName || s).toUpperCase();
+                    return <option key={sport} value={sport}>{sport}</option>;
+                  })}
+                </select>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className={`border rounded-xl p-3 text-center transition-all ${isEditingStats ? 'bg-amber-50/30 border-[#2f6d5a] ring-2 ring-[#2f6d5a]/20' : 'bg-white border-gray-300'}`}>
                 <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">
@@ -1732,12 +1772,11 @@ export default function AcademyDashboard() {
                   type="number"
                   min="0"
                   step="1"
-                  value={profileForm.districtPlayers ?? ''}
+                  value={statisticsForm.districtPlayers ?? ''}
                   onChange={(e) => {
                     const raw = e.target.value;
                     const val = raw === '' ? '' : Math.max(0, parseInt(raw, 10) || 0);
-                    setProfileForm(prev => ({ ...prev, districtPlayers: val }));
-                    if (!isEditingStats) setIsEditingStats(true);
+                    setStatisticsForm(prev => ({ ...prev, districtPlayers: val }));
                   }}
                   className="w-full text-center py-1.5 text-base font-bold border border-gray-300 rounded-lg focus:outline-none focus:border-[#2f6d5a] bg-white"
                 />
@@ -1751,12 +1790,11 @@ export default function AcademyDashboard() {
                   type="number"
                   min="0"
                   step="1"
-                  value={profileForm.statePlayers ?? ''}
+                  value={statisticsForm.statePlayers ?? ''}
                   onChange={(e) => {
                     const raw = e.target.value;
                     const val = raw === '' ? '' : Math.max(0, parseInt(raw, 10) || 0);
-                    setProfileForm(prev => ({ ...prev, statePlayers: val }));
-                    if (!isEditingStats) setIsEditingStats(true);
+                    setStatisticsForm(prev => ({ ...prev, statePlayers: val }));
                   }}
                   className="w-full text-center py-1.5 text-base font-bold border border-gray-300 rounded-lg focus:outline-none focus:border-[#2f6d5a] bg-white"
                 />
@@ -1770,12 +1808,11 @@ export default function AcademyDashboard() {
                   type="number"
                   min="0"
                   step="1"
-                  value={profileForm.nationalPlayers ?? ''}
+                  value={statisticsForm.nationalPlayers ?? ''}
                   onChange={(e) => {
                     const raw = e.target.value;
                     const val = raw === '' ? '' : Math.max(0, parseInt(raw, 10) || 0);
-                    setProfileForm(prev => ({ ...prev, nationalPlayers: val }));
-                    if (!isEditingStats) setIsEditingStats(true);
+                    setStatisticsForm(prev => ({ ...prev, nationalPlayers: val }));
                   }}
                   className="w-full text-center py-1.5 text-base font-bold border border-gray-300 rounded-lg focus:outline-none focus:border-[#2f6d5a] bg-white"
                 />
@@ -1789,12 +1826,11 @@ export default function AcademyDashboard() {
                   type="number"
                   min="0"
                   step="1"
-                  value={profileForm.internationalPlayers ?? ''}
+                  value={statisticsForm.internationalPlayers ?? ''}
                   onChange={(e) => {
                     const raw = e.target.value;
                     const val = raw === '' ? '' : Math.max(0, parseInt(raw, 10) || 0);
-                    setProfileForm(prev => ({ ...prev, internationalPlayers: val }));
-                    if (!isEditingStats) setIsEditingStats(true);
+                    setStatisticsForm(prev => ({ ...prev, internationalPlayers: val }));
                   }}
                   className="w-full text-center py-1.5 text-base font-bold border border-gray-300 rounded-lg focus:outline-none focus:border-[#2f6d5a] bg-white"
                 />
@@ -1809,7 +1845,7 @@ export default function AcademyDashboard() {
                   Dynamic Per-Sport Classification
                 </h3>
                 <span className="text-[11px] text-gray-500 italic">
-                  Derived from active athlete memberships & verified competition achievements
+                  Derived from each sport's saved representation statistics
                 </span>
               </div>
 
@@ -1822,29 +1858,12 @@ export default function AcademyDashboard() {
                   {sports.map(s => {
                     const spName = (s.sportName || s).toUpperCase();
                     let spStats = null;
-                    if (isEditingStats && profileForm) {
-                      spStats = {
-                        districtPlayers: Number(profileForm.districtPlayers || 0),
-                        statePlayers: Number(profileForm.statePlayers || 0),
-                        nationalPlayers: Number(profileForm.nationalPlayers || 0),
-                        internationalPlayers: Number(profileForm.internationalPlayers || 0)
-                      };
+                    if (isEditingStats && spName === statisticsSport) {
+                      spStats = statisticsForm;
                     } else {
                       const spData = profile?.perSportLevels?.[spName] || profile?.perSportLevels?.[s.sportName] || {};
                       spStats = spData.rankingStats;
-                      if (!spStats || (!spStats.districtPlayers && !spStats.statePlayers && !spStats.nationalPlayers && !spStats.internationalPlayers)) {
-                        const baseStats = profile?.rankingStats || profileForm;
-                        if (baseStats) {
-                          spStats = {
-                            districtPlayers: Number(baseStats.districtPlayers || 0),
-                            statePlayers: Number(baseStats.statePlayers || 0),
-                            nationalPlayers: Number(baseStats.nationalPlayers || 0),
-                            internationalPlayers: Number(baseStats.internationalPlayers || 0)
-                          };
-                        } else {
-                          spStats = { districtPlayers: 0, statePlayers: 0, nationalPlayers: 0, internationalPlayers: 0 };
-                        }
-                      }
+                      if (!spStats) spStats = { districtPlayers: 0, statePlayers: 0, nationalPlayers: 0, internationalPlayers: 0 };
                     }
 
                     const intl = Number(spStats.internationalPlayers || 0);
@@ -1854,7 +1873,7 @@ export default function AcademyDashboard() {
                     let spLevel = 'NOT YET QUALIFIED';
                     if (intl >= 1) spLevel = 'INTERNATIONAL';
                     else if (natl >= 2) spLevel = 'NATIONAL';
-                    else if (state >= 3 || (state >= 2 && dist >= 5)) spLevel = 'STATE';
+                    else if (state >= 3) spLevel = 'STATE';
                     else if (dist >= 5) spLevel = 'DISTRICT';
 
                     const isQualified = spLevel !== 'NOT YET QUALIFIED' && spLevel !== 'UNRANKED';

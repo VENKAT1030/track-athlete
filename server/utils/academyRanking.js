@@ -46,10 +46,14 @@ function resolveCompetitionLevel(item, event) {
  */
 function calculateAchievementLevelFromStats(stats) {
   if (!stats) return 'NOT YET QUALIFIED';
-  const intl = Number(stats.internationalPlayers || 0);
-  const natl = Number(stats.nationalPlayers || 0);
-  const state = Number(stats.statePlayers || 0);
-  const dist = Number(stats.districtPlayers || 0);
+  const toCount = (value) => {
+    const count = Number(value);
+    return Number.isFinite(count) && count > 0 ? count : 0;
+  };
+  const intl = toCount(stats.internationalPlayers);
+  const natl = toCount(stats.nationalPlayers);
+  const state = toCount(stats.statePlayers);
+  const dist = toCount(stats.districtPlayers);
 
   if (intl >= 1) return 'INTERNATIONAL';
   if (natl >= 2) return 'NATIONAL';

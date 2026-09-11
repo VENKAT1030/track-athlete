@@ -178,29 +178,19 @@ async function getAcademyPerSportAchievementLevels(academyDoc, preloadedMembersh
     // Derive effective player stats using official representation statistics
     const perSportStats = academyDoc.perSportLevels?.[sport]?.rankingStats;
     const hasPerSportStats = perSportStats && typeof perSportStats === 'object' && perSportStats.districtPlayers !== undefined;
-    const hasManualStats = academyDoc.rankingStats && typeof academyDoc.rankingStats === 'object';
-
     const effectiveStats = {
       districtPlayers: hasPerSportStats
         ? Math.max(0, parseInt(perSportStats.districtPlayers, 10) || 0)
-        : (hasManualStats && academyDoc.rankingStats.districtPlayers !== undefined
-          ? Math.max(0, parseInt(academyDoc.rankingStats.districtPlayers, 10) || 0)
-          : districtCount),
+        : districtCount,
       statePlayers: hasPerSportStats
         ? Math.max(0, parseInt(perSportStats.statePlayers, 10) || 0)
-        : (hasManualStats && academyDoc.rankingStats.statePlayers !== undefined
-          ? Math.max(0, parseInt(academyDoc.rankingStats.statePlayers, 10) || 0)
-          : stateCount),
+        : stateCount,
       nationalPlayers: hasPerSportStats
         ? Math.max(0, parseInt(perSportStats.nationalPlayers, 10) || 0)
-        : (hasManualStats && academyDoc.rankingStats.nationalPlayers !== undefined
-          ? Math.max(0, parseInt(academyDoc.rankingStats.nationalPlayers, 10) || 0)
-          : nationalCount),
+        : nationalCount,
       internationalPlayers: hasPerSportStats
         ? Math.max(0, parseInt(perSportStats.internationalPlayers, 10) || 0)
-        : (hasManualStats && academyDoc.rankingStats.internationalPlayers !== undefined
-          ? Math.max(0, parseInt(academyDoc.rankingStats.internationalPlayers, 10) || 0)
-          : internationalCount)
+        : internationalCount
     };
 
     const level = calculateAchievementLevelFromStats(effectiveStats);
@@ -215,11 +205,13 @@ async function getAcademyPerSportAchievementLevels(academyDoc, preloadedMembersh
     };
   }
 
-  // Calculate overall level as the highest qualifying level across all sports & direct rankingStats
+  // The academy summary is the highest level across independent sport records.
+  // rankingStats is retained as a compatibility summary, never as a fallback
+  // source for a sport's saved representation statistics.
   let maxRank = 0;
   let overallLevel = 'NOT YET QUALIFIED';
 
-  if (academyDoc.rankingStats) {
+  if (sportsOffered.length === 0 && academyDoc.rankingStats) {
     overallLevel = calculateAchievementLevelFromStats(academyDoc.rankingStats);
     maxRank = getCompetitionRank(overallLevel);
   }
@@ -387,16 +379,17 @@ async function syncAcademyAchievementLevels(academyDoc) {
   }
 
   const updatedStats = {
-    districtPlayers: Math.max(maxDist, Number(academyDoc.rankingStats?.districtPlayers || 0)),
-    statePlayers: Math.max(maxState, Number(academyDoc.rankingStats?.statePlayers || 0)),
-    nationalPlayers: Math.max(maxNatl, Number(academyDoc.rankingStats?.nationalPlayers || 0)),
-    internationalPlayers: Math.max(maxIntl, Number(academyDoc.rankingStats?.internationalPlayers || 0))
+    districtPlayers: maxDist,
+    statePlayers: maxState,
+    nationalPlayers: maxNatl,
+    internationalPlayers: maxIntl
   };
 
   await Academy.updateOne({ _id: academyDoc._id }, {
     $set: {
       achievementLevel: overallLevel,
       achievementLevelLabel: overallLevelLabel,
+      perSportLevels: perSport,
       rankingStats: updatedStats
     }
   });
@@ -406,6 +399,7 @@ async function syncAcademyAchievementLevels(academyDoc) {
       $set: {
         achievementLevel: overallLevel,
         achievementLevelLabel: overallLevelLabel,
+        perSportLevels: perSport,
         rankingStats: updatedStats
       }
     });

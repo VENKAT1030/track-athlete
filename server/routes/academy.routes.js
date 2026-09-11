@@ -325,10 +325,6 @@ router.put('/my/profile', verifyToken, requireRoles('academy'), async (req, res)
         internationalPlayers: Math.max(0, parseInt(rankingStats.internationalPlayers, 10) || 0)
       };
       academy.markModified('rankingStats');
-      if (!perSportLevels) {
-        academy.perSportLevels = {};
-        academy.markModified('perSportLevels');
-      }
     }
 
     if (perSportLevels && typeof perSportLevels === 'object') {
@@ -402,6 +398,65 @@ router.put('/my/profile', verifyToken, requireRoles('academy'), async (req, res)
   } catch (err) {
     console.error('Error updating academy profile:', err);
     res.status(500).json({ error: 'Failed to update academy profile: ' + err.message });
+  }
+});
+
+/**
+ * PUT /api/academy/my/sports/:sport/statistics
+ * Persist representation counts for one sport only. The stored counts are the
+ * source of truth; achievement levels are always recalculated on the server.
+ */
+router.put('/my/sports/:sport/statistics', verifyToken, requireRoles('academy'), async (req, res) => {
+  try {
+    const academy = await getAcademyForUser(req.user._id);
+    if (!academy) return res.status(404).json({ error: 'Academy profile not found.' });
+
+    const sport = String(req.params.sport || '').trim().toUpperCase();
+    const offeredSports = (academy.sports || []).map(item => String(item.sportName || item).trim().toUpperCase());
+    if (!sport || !offeredSports.includes(sport)) {
+      return res.status(400).json({ error: 'Statistics can only be updated for a sport offered by this academy.' });
+    }
+
+    const toCount = (value) => {
+      const count = Number(value);
+      return Number.isFinite(count) && count >= 0 ? Math.floor(count) : 0;
+    };
+    const input = req.body?.rankingStats;
+    if (!input || typeof input !== 'object') {
+      return res.status(400).json({ error: 'Representation statistics are required.' });
+    }
+    const rankingStats = {
+      districtPlayers: toCount(input.districtPlayers),
+      statePlayers: toCount(input.statePlayers),
+      nationalPlayers: toCount(input.nationalPlayers),
+      internationalPlayers: toCount(input.internationalPlayers)
+    };
+
+    const existingLevels = academy.perSportLevels && typeof academy.perSportLevels === 'object'
+      ? academy.perSportLevels
+      : {};
+    academy.perSportLevels = {
+      ...existingLevels,
+      [sport]: { sport, rankingStats }
+    };
+    academy.markModified('perSportLevels');
+
+    const { syncAcademyAchievementLevels } = require('../utils/recommendationEngine');
+    const syncResult = await syncAcademyAchievementLevels(academy);
+    const refreshed = await Academy.findById(academy._id);
+    const serialized = serializeAcademyProfile(refreshed, 'academy');
+    serialized.rankingStats = syncResult.rankingStats;
+    serialized.perSportLevels = syncResult.perSport;
+    serialized.achievementLevel = syncResult.overallLevel;
+    serialized.achievementLevelLabel = syncResult.overallLevelLabel;
+
+    res.json({
+      ...serialized,
+      updatedSport: syncResult.perSport[sport]
+    });
+  } catch (err) {
+    console.error('Error updating academy sport statistics:', err);
+    res.status(500).json({ error: 'Failed to update academy sport statistics: ' + err.message });
   }
 });
 
