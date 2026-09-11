@@ -437,7 +437,7 @@ router.put('/my/sports/:sport/statistics', verifyToken, requireRoles('academy'),
       : {};
     academy.perSportLevels = {
       ...existingLevels,
-      [sport]: { sport, rankingStats }
+      [sport]: { sport, rankingStats, statsSource: 'MANUAL' }
     };
     academy.markModified('perSportLevels');
 

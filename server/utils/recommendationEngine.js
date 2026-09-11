@@ -176,8 +176,15 @@ async function getAcademyPerSportAchievementLevels(academyDoc, preloadedMembersh
     }
 
     // Derive effective player stats using official representation statistics
-    const perSportStats = academyDoc.perSportLevels?.[sport]?.rankingStats;
-    const hasPerSportStats = perSportStats && typeof perSportStats === 'object' && perSportStats.districtPlayers !== undefined;
+    const storedSportLevel = academyDoc.perSportLevels?.[sport];
+    const perSportStats = storedSportLevel?.rankingStats;
+    // Older releases copied the academy-wide summary into every sport. Only
+    // statistics explicitly saved through the per-sport endpoint are manual
+    // source-of-truth counts; unmarked legacy entries are derived afresh.
+    const hasPerSportStats = storedSportLevel?.statsSource === 'MANUAL'
+      && perSportStats
+      && typeof perSportStats === 'object'
+      && perSportStats.districtPlayers !== undefined;
     const effectiveStats = {
       districtPlayers: hasPerSportStats
         ? Math.max(0, parseInt(perSportStats.districtPlayers, 10) || 0)
@@ -198,6 +205,7 @@ async function getAcademyPerSportAchievementLevels(academyDoc, preloadedMembersh
     perSport[sport] = {
       sport,
       rankingStats: effectiveStats,
+      statsSource: hasPerSportStats ? 'MANUAL' : 'DERIVED',
       achievementLevel: level,
       achievementLevelLabel: level !== 'NOT YET QUALIFIED' && level !== 'UNRANKED'
         ? `Achievement Level: ${level}`
