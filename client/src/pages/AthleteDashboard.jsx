@@ -32,12 +32,14 @@ import OrganizedEventsSection from '../components/OrganizedEventsSection';
 import AthleteAchievementsTimeline from '../components/AthleteAchievementsTimeline';
 import ErrorBoundary from '../components/ErrorBoundary';
 import AthleteRecommendationsPage from './AthleteRecommendationsPage';
+import SponsorDiscoverySection from '../components/SponsorDiscoverySection';
 import {
   Shield,
   User,
   Building2,
   MapPin,
   Award,
+  HeartHandshake,
   CheckCircle2,
   Search,
   Send,
@@ -895,6 +897,9 @@ export default function AthleteDashboard() {
           <TabsTrigger value="academies">
             <Building2 className="w-4 h-4 mr-1.5" /> Academies & Centers
           </TabsTrigger>
+          <TabsTrigger value="sponsorship">
+            <HeartHandshake className="w-4 h-4 mr-1.5 text-[#cc694e]" /> Sponsorship
+          </TabsTrigger>
           <TabsTrigger value="profile">
             <User className="w-4 h-4 mr-1.5" /> Profile & Preferences
           </TabsTrigger>
@@ -1526,6 +1531,11 @@ export default function AthleteDashboard() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ── SPONSORSHIP TAB ──────────────────────────────────── */}
+        <TabsContent value="sponsorship" className="space-y-4">
+          <SponsorDiscoverySection athleteProfile={profile} onProfileUpdate={() => fetchData()} />
         </TabsContent>
       </Tabs>
 
