@@ -24,47 +24,16 @@ const {
 async function getAcademyForUser(userId) {
   let academy = await Academy.findOne({ userId });
   if (!academy) {
-    // Fallback: check if academy exists with user's academyId, email, or name
+    // Reconcile an existing Academy only through its permanent identity. A
+    // dashboard request must never create a profile or match mutable fields.
     const user = await User.findById(userId);
     if (user && user.role === 'academy') {
       if (user.academyId) {
         academy = await Academy.findOne({ academyId: user.academyId });
       }
-      if (!academy) {
-        const cleanEmail = user.email ? String(user.email).trim().toLowerCase() : '';
-        academy = await Academy.findOne({
-          $or: [
-            { email: new RegExp('^' + cleanEmail.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '$', 'i') },
-            { name: new RegExp('^' + String(user.academyName || user.name || '').trim().replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '$', 'i') }
-          ]
-        });
-      }
-      if (academy) {
-        if (!academy.userId) {
-          academy.userId = user._id;
-          await academy.save();
-        }
-      } else {
-        const permanentId = `ACA-${user._id.toString().slice(-8).toUpperCase()}`;
-        academy = await Academy.create({
-          userId: user._id,
-          academyId: permanentId,
-          name: String(user.academyName || user.name || 'Sports Academy').trim(),
-          contactPhone: String(user.contactPhone || user.phone || '+91 0000000000').trim(),
-          email: user.email ? String(user.email).trim().toLowerCase() : '',
-          address: {
-            addressLine1: typeof user.address === 'string' ? user.address : (user.address?.addressLine1 || ''),
-            city: user.city || '',
-            state: user.state || '',
-            pincode: user.pincode || '',
-            country: 'India'
-          },
-          city: user.city || '',
-          state: user.state || '',
-          location: user.location || { type: 'Point', coordinates: [80.6480, 16.5062] },
-          sports: (user.sportsOffered || []).map(s => ({ sportName: s, addedAt: new Date() })),
-          verified: true
-        });
+      if (academy && !academy.userId) {
+        academy.userId = user._id;
+        await academy.save();
       }
     }
   }

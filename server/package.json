@@ -9,7 +9,8 @@
     "seed": "node seed/seed.js",
     "seed:federation": "node seedFederation.js",
     "seed:organizations": "node seedOrganizations.js",
-    "migrate:verified-data": "node scripts/migrateVerifiedData.js"
+    "migrate:verified-data": "node scripts/migrateVerifiedData.js",
+    "reconcile:academies": "node scripts/reconcileAcademies.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

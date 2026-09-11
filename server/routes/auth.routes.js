@@ -7,6 +7,7 @@ const User = require('../models/User');
 const indianCities = require('../utils/indianCities');
 const { verifyToken } = require('../middleware/auth.middleware');
 const { hashAadhaar, withoutAadhaar } = require('../utils/aadhaar');
+const { synchronizeAcademyForUser, normalizeSports } = require('../services/academySync.service');
 const {
   sendForgotPasswordOTP,
   sendWelcomeEmail,
@@ -15,6 +16,7 @@ const {
 
 // POST /api/auth/signup
 router.post('/signup', async (req, res) => {
+  let createdUser = null;
   try {
     const { name, email, password, role, rememberMe, city, state, address, aadhaarNumber, aadhaar, aadhaarHash: ignoredAadhaarHash, ...rest } = req.body;
     if (rest.sport) rest.sport = String(rest.sport).trim();
@@ -70,6 +72,16 @@ router.post('/signup', async (req, res) => {
     let normalizedAthleteSports = undefined;
     let athleteActiveStatus = undefined;
     let athleteSeekingSponsorship = undefined;
+
+    if (role === 'academy') {
+      const coordinates = req.body.location?.coordinates;
+      if (!req.body.academyName || !String(req.body.academyName).trim() ||
+          !req.body.contactPhone || !String(req.body.contactPhone).trim() ||
+          !Array.isArray(coordinates) || coordinates.length !== 2 ||
+          !coordinates.every(value => Number.isFinite(Number(value)))) {
+        return res.status(400).json({ error: 'Academy name, contact phone, and a valid location are required.' });
+      }
+    }
 
     if (role === 'athlete') {
       if (!name || !String(name).trim()) {
@@ -385,7 +397,16 @@ router.post('/signup', async (req, res) => {
       userPayload.certificateFileSize = coachCertBufferLength;
     }
 
+    if (role === 'academy') {
+      userPayload.academyName = String(req.body.academyName).trim();
+      userPayload.contactPhone = String(req.body.contactPhone).trim();
+      userPayload.phone = userPayload.contactPhone;
+      userPayload.sportsOffered = normalizeSports(req.body.sports || req.body.sportsOffered).map(sport => sport.sportName);
+      userPayload.location = { type: 'Point', coordinates: req.body.location.coordinates.map(Number) };
+    }
+
     const user = await User.create(userPayload);
+    createdUser = user;
     const { generateRolePermanentId } = require('../utils/idGenerator');
 
     if (role === 'athlete') {
@@ -451,7 +472,14 @@ router.post('/signup', async (req, res) => {
       user.trackAthleteId = sponsorIdStr;
     }
     if (role === 'academy') {
-      const academyIdStr = await generateRolePermanentId('academy', user._id, async (cand) => !(await User.findOne({ $or: [{ academyId: cand }, { trackAthleteId: cand }] })));
+      const Academy = require('../models/Academy');
+      const academyIdStr = await generateRolePermanentId('academy', user._id, async (cand) => {
+        const [existingUser, existingAcademy] = await Promise.all([
+          User.exists({ $or: [{ academyId: cand }, { trackAthleteId: cand }] }),
+          Academy.exists({ academyId: cand })
+        ]);
+        return !existingUser && !existingAcademy;
+      });
       user.academyId = academyIdStr;
       user.trackAthleteId = academyIdStr;
       if (req.body.academyName) user.academyName = String(req.body.academyName).trim();
@@ -472,59 +500,10 @@ router.post('/signup', async (req, res) => {
       }
     }
 
-    // Auto-create Academy record and initial sport assignments if signing up as academy
+    // Registration succeeds only after the permanent Academy document has been synchronized.
     if (role === 'academy') {
-      try {
-        const Academy = require('../models/Academy');
         const AcademyCoachAssignment = require('../models/AcademyCoachAssignment');
-
-        const coords = req.body.location?.coordinates && Array.isArray(req.body.location.coordinates)
-          ? req.body.location.coordinates
-          : (location?.coordinates || [80.6480, 16.5062]);
-
-        const rawSports = Array.isArray(req.body.sports)
-          ? req.body.sports
-          : (Array.isArray(req.body.sportsOffered) ? req.body.sportsOffered.map(s => ({ sportName: s })) : []);
-
-        const normalizedSports = [];
-        const seen = new Set();
-        for (const sp of rawSports) {
-          const sName = String(sp.sportName || sp.name || sp).trim().toUpperCase();
-          if (sName && !seen.has(sName)) {
-            seen.add(sName);
-            normalizedSports.push({ sportName: sName, addedAt: new Date() });
-          }
-        }
-
-        const academyDoc = await Academy.create({
-          userId: user._id,
-          academyId: user.academyId,
-          name: String(req.body.academyName || user.name).trim(),
-          contactPhone: String(req.body.contactPhone || req.body.phone || '+91 0000000000').trim(),
-          email: cleanEmail,
-          address: {
-            addressLine1: req.body.address?.addressLine1 || req.body.addressLine1 || req.body.address || '',
-            addressLine2: req.body.address?.addressLine2 || req.body.addressLine2 || '',
-            city: city || req.body.address?.city || '',
-            state: state || req.body.address?.state || '',
-            pincode: req.body.pincode || req.body.address?.pincode || '',
-            country: req.body.country || req.body.address?.country || 'India'
-          },
-          city: city || req.body.address?.city || '',
-          state: state || req.body.address?.state || '',
-          location: {
-            type: 'Point',
-            coordinates: [Number(req.body.location?.coordinates?.[0]) || 80.6480, Number(req.body.location?.coordinates?.[1]) || 16.5062]
-          },
-          sports: (Array.isArray(req.body.sports) ? req.body.sports.map(s => ({ sportName: String(s.sportName || s).trim().toUpperCase(), addedAt: new Date() })) : []),
-          rankingStats: {
-            districtPlayers: Number(req.body.rankingStats?.districtPlayers ?? req.body.districtPlayers ?? 0),
-            statePlayers: Number(req.body.rankingStats?.statePlayers ?? req.body.statePlayers ?? 0),
-            nationalPlayers: Number(req.body.rankingStats?.nationalPlayers ?? req.body.nationalPlayers ?? 0),
-            internationalPlayers: Number(req.body.rankingStats?.internationalPlayers ?? req.body.internationalPlayers ?? 0)
-          },
-          verified: true
-        });
+        const academyDoc = await synchronizeAcademyForUser(user, { ...req.body, email: cleanEmail });
 
         // Add coach assignments if provided
         for (const sp of (req.body.sports || [])) {
@@ -551,7 +530,7 @@ router.post('/signup', async (req, res) => {
             await AcademyCoachAssignment.create({
               academyId: academyDoc.academyId,
               sportName: String(sp.sportName || '').trim().toUpperCase(),
-              coachName: sp.coachName || 'Assigned Coach',
+              coachName: String(sp.coachName || '').trim(),
               coachAadhaarHash: sp.coachAadhaar ? hashAadhaar(sp.coachAadhaar) : null,
               coachNisId: sp.coachNisId || null,
               coachCertificateData: sp.coachCertificateData || null,
@@ -560,9 +539,6 @@ router.post('/signup', async (req, res) => {
             }).catch(e => console.error('[Coach Assignment Create Warning]', e.message));
           }
         }
-      } catch (acadErr) {
-        console.error('[Academy Auto-Create Error]', acadErr);
-      }
     }
     
     const expiresIn = rememberMe ? '30d' : '7d';
@@ -590,6 +566,11 @@ router.post('/signup', async (req, res) => {
 
     res.status(201).json({ token, user: userObj });
   } catch (err) {
+    // Do not leave a successful Academy account without its required Academy
+    // document if the registration synchronization fails.
+    if (createdUser?.role === 'academy') {
+      await User.deleteOne({ _id: createdUser._id }).catch(() => {});
+    }
     console.error('Signup Error:', err);
     res.status(500).json({ error: 'Signup failed. ' + (err.message || '') });
   }
@@ -731,52 +712,10 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Role handling: smoothly direct Academy users to academy workspace
+    // Academy documents are created at registration or by the explicit
+    // reconciliation command, never as a side effect of signing in.
     if (user.role === 'academy') {
-      try {
-        const Academy = require('../models/Academy');
-        let acad = await Academy.findOne({ userId: user._id });
-        if (!acad) {
-          acad = await Academy.findOne({ email: user.email });
-          if (acad && !acad.userId) {
-            acad.userId = user._id;
-            await acad.save();
-          } else if (!acad) {
-            const newAcadId = `ACA-${user._id.toString().slice(-8).toUpperCase()}`;
-            acad = await Academy.create({
-              userId: user._id,
-              academyId: newAcadId,
-              name: String(user.academyName || user.name || 'Sports Academy').trim(),
-              email: user.email,
-              contactPhone: String(user.contactPhone || user.phone || '+91 0000000000').trim(),
-              address: {
-                addressLine1: typeof user.address === 'string' ? user.address : (user.address?.addressLine1 || ''),
-                city: user.city || '',
-                state: user.state || '',
-                country: 'India'
-              },
-              city: user.city || '',
-              state: user.state || '',
-              location: user.location || { type: 'Point', coordinates: [80.6480, 16.5062] },
-              sports: (user.sportsOffered || []).map(s => ({ sportName: s, addedAt: new Date() })),
-              verified: true
-            });
-          }
-        }
-        if (acad && !acad.academyId) {
-          const baseId = acad.userId || acad._id;
-          acad.academyId = `ACA-${baseId.toString().slice(-8).toUpperCase()}`;
-          await Academy.updateOne({ _id: acad._id }, { $set: { academyId: acad.academyId } });
-        }
-        if (user && (!user.academyId || !user.trackAthleteId)) {
-          const permId = acad?.academyId || `ACA-${user._id.toString().slice(-8).toUpperCase()}`;
-          user.academyId = user.academyId || permId;
-          user.trackAthleteId = user.trackAthleteId || permId;
-          await User.updateOne({ _id: user._id }, { $set: { academyId: user.academyId, trackAthleteId: user.trackAthleteId } });
-        }
-      } catch (syncErr) {
-        console.error('[Academy Sync Warning]', syncErr.message);
-      }
+      user.trackAthleteId = user.academyId || user.trackAthleteId;
     }
     
     const expiresIn = rememberMe ? '30d' : '7d';
@@ -792,8 +731,8 @@ router.post('/login', async (req, res) => {
     if (user.role === 'sponsor') userObj.sponsorId = user.sponsorId;
     if (user.role === 'academy') {
       const Academy = require('../models/Academy');
-      const acad = await Academy.findOne({ $or: [{ userId: user._id }, { email: user.email }] });
-      userObj.academyId = acad?.academyId || user.academyId || `ACA-${user._id.toString().slice(-8).toUpperCase()}`;
+      const acad = await Academy.findOne({ $or: [{ userId: user._id }, { academyId: user.academyId }] });
+      userObj.academyId = acad?.academyId || user.academyId;
       userObj.trackAthleteId = userObj.academyId;
       if (acad?.name) userObj.academyName = acad.name;
       if (acad?.achievementLevel) userObj.achievementLevel = acad.achievementLevel;
