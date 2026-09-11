@@ -77,7 +77,11 @@ export default function SponsorDiscoverySection({ athleteProfile, onProfileUpdat
       setSponsors(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching sponsors:', err);
-      toast({ title: 'Error', description: 'Failed to fetch registered sponsors.', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: err.response?.data?.error || err.message || 'Failed to fetch registered sponsors.',
+        variant: 'destructive'
+      });
     } finally {
       setLoadingSponsors(false);
     }

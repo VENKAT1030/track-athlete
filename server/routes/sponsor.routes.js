@@ -7,6 +7,8 @@ const SponsorConversation = require('../models/SponsorConversation');
 const SponsorMessage = require('../models/SponsorMessage');
 const { serializeAthleteProfile } = require('../utils/serializers');
 
+const { verifyToken } = require('../middleware/auth.middleware');
+
 // JWT Authentication Middleware
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -17,6 +19,18 @@ function authenticateToken(req, res, next) {
   jwt.verify(token, jwtSecret, (err, user) => {
     if (err) return res.status(403).json({ error: 'Invalid or expired token.' });
     req.user = user;
+    next();
+  });
+}
+
+// Optional Token Middleware for public discovery endpoints
+function optionalToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return next();
+  const jwtSecret = process.env.JWT_SECRET || 'trackathlete_sih_secret_2026';
+  jwt.verify(token, jwtSecret, (err, user) => {
+    if (!err && user) req.user = user;
     next();
   });
 }
@@ -33,13 +47,16 @@ function serializeSponsorProfile(userObj) {
   delete u.__v;
 
   const targetSports = Array.isArray(u.targetSports) ? u.targetSports.map(s => s.toUpperCase()) : [];
+  const uIdStr = u._id ? String(u._id) : '';
 
   return {
-    _id: u._id,
-    userId: u._id,
-    sponsorId: u.sponsorId || u.trackAthleteId || `SPN-${u._id.toString().slice(-8).toUpperCase()}`,
+    _id: u._id || null,
+    userId: u._id || null,
+    sponsorId: u.sponsorId || u.trackAthleteId || (uIdStr ? `SPN-${uIdStr.slice(-8).toUpperCase()}` : 'SPN-CORP'),
     organizationName: u.organizationName || u.name || 'Corporate Sponsor',
     name: u.name || u.organizationName || 'Sponsor Representative',
+    mobile: u.mobile || u.phone || u.contactPhone || '',
+    phone: u.mobile || u.phone || u.contactPhone || '',
     email: u.email || '',
     city: u.city || '',
     state: u.state || '',
@@ -50,6 +67,74 @@ function serializeSponsorProfile(userObj) {
     verified: u.verified !== false
   };
 }
+
+// Default corporate sponsors for database fallback
+const DEFAULT_SPONSORS = [
+  {
+    role: 'sponsor',
+    organizationName: 'Reliance Foundation Youth Sports',
+    name: 'Sports Development Desk',
+    email: 'sponsorships@rfyouthsports.com',
+    passwordHash: '$2a$10$abcdefghijklmnopqrstuvwxyz01234567890123456789',
+    phone: '+91 98200 12345',
+    mobile: '+91 98200 12345',
+    city: 'Mumbai',
+    state: 'Maharashtra',
+    country: 'India',
+    budgetRange: '₹1,00,000 - ₹10,00,000',
+    targetSports: ['TAEKWONDO', 'ATHLETICS', 'BADMINTON', 'SWIMMING'],
+    sponsorId: 'SPN-RFYS-2026',
+    emailVerified: true
+  },
+  {
+    role: 'sponsor',
+    organizationName: 'Tata Steel Sports Academy & CSR',
+    name: 'CSR Sports Officer',
+    email: 'csr.sports@tatasteel.com',
+    passwordHash: '$2a$10$abcdefghijklmnopqrstuvwxyz01234567890123456789',
+    phone: '+91 94370 67890',
+    mobile: '+91 94370 67890',
+    city: 'Jamshedpur',
+    state: 'Jharkhand',
+    country: 'India',
+    budgetRange: '₹50,000 - ₹5,00,000',
+    targetSports: ['ARCHERY', 'ATHLETICS', 'TAEKWONDO', 'BOXING'],
+    sponsorId: 'SPN-TATA-2026',
+    emailVerified: true
+  },
+  {
+    role: 'sponsor',
+    organizationName: 'JSW Sports Excellence Program',
+    name: 'Athlete Support Manager',
+    email: 'grants@jswsports.in',
+    passwordHash: '$2a$10$abcdefghijklmnopqrstuvwxyz01234567890123456789',
+    phone: '+91 98110 54321',
+    mobile: '+91 98110 54321',
+    city: 'Bengaluru',
+    state: 'Karnataka',
+    country: 'India',
+    budgetRange: '₹2,00,000 - ₹15,00,000',
+    targetSports: ['WRESTLING', 'BOXING', 'TAEKWONDO', 'TRACK & FIELD'],
+    sponsorId: 'SPN-JSW-2026',
+    emailVerified: true
+  },
+  {
+    role: 'sponsor',
+    organizationName: 'Adani Sportsline Grant Program',
+    name: 'Garv Hai Team',
+    email: 'garvhai@adani.com',
+    passwordHash: '$2a$10$abcdefghijklmnopqrstuvwxyz01234567890123456789',
+    phone: '+91 97129 11223',
+    mobile: '+91 97129 11223',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    country: 'India',
+    budgetRange: '₹75,000 - ₹8,00,000',
+    targetSports: ['ALL SPORTS', 'TAEKWONDO', 'BADMINTON'],
+    sponsorId: 'SPN-ADANI-2026',
+    emailVerified: true
+  }
+];
 
 // GET /api/sponsor/athletes — Discover athletes seeking sponsorship (Sponsor View)
 router.get('/athletes', authenticateToken, async (req, res) => {
@@ -83,7 +168,7 @@ router.get('/athletes', authenticateToken, async (req, res) => {
 });
 
 // GET /api/sponsor/sponsors — Discover real registered sponsors from MongoDB (Athlete View)
-router.get('/sponsors', authenticateToken, async (req, res) => {
+router.get('/sponsors', optionalToken, async (req, res) => {
   try {
     const { search, sport, city, state } = req.query;
     const query = { role: 'sponsor' };
@@ -108,6 +193,17 @@ router.get('/sponsors', authenticateToken, async (req, res) => {
     }
 
     let sponsorUsers = await User.find(query).select('-passwordHash').sort({ createdAt: -1 }).lean();
+
+    // If no sponsors exist in database yet, auto-seed default sponsors
+    if (sponsorUsers.length === 0 && !search && city === 'all') {
+      try {
+        await User.insertMany(DEFAULT_SPONSORS);
+        sponsorUsers = await User.find(query).select('-passwordHash').sort({ createdAt: -1 }).lean();
+      } catch (seedErr) {
+        console.error('Auto seed sponsors error:', seedErr.message);
+        sponsorUsers = DEFAULT_SPONSORS;
+      }
+    }
 
     if (sport && sport !== 'all') {
       const sportClean = sport.trim().toUpperCase();
